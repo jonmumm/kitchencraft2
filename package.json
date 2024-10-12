@@ -1,0 +1,37 @@
+{
+  "name": "kitchencraft",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "remix dev -c \"wrangler dev\"",
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc"
+  },
+  "keywords": [
+    "actor-kit",
+    "remix",
+    "kitchen",
+    "management"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20241011.0",
+    "@remix-run/cloudflare": "^2.12.1",
+    "@remix-run/css-bundle": "^2.13.1",
+    "@remix-run/dev": "^2.12.1",
+    "@remix-run/react": "^2.12.1",
+    "@remix-run/server-runtime": "^2.13.1",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "actor-kit": "^0.16.0",
+    "isbot": "^4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.80.2",
+    "xstate": "^5.18.2",
+    "zod": "^3.23.8"
+  }
+}

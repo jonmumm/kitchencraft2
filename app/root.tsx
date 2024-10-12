@@ -1,0 +1,88 @@
+import { cssBundleHref } from "@remix-run/css-bundle";
+import {
+  json,
+  Links,
+  LiveReload,
+  Meta,
+  Outlet,
+  Scripts,
+  ScrollRestoration,
+  useLoaderData,
+} from "@remix-run/react";
+
+import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { createAccessToken, createActorFetch } from "actor-kit/server";
+import { SessionActorKitProvider } from "./session.context";
+import { SessionMachine } from "./session.machine";
+
+export const links: LinksFunction = () => [
+  ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
+];
+
+export async function loader({ params, context }: LoaderFunctionArgs) {
+  const fetchSession = createActorFetch<SessionMachine>({
+    actorType: "session",
+    host: context.env.ACTOR_KIT_HOST,
+  });
+
+  const accessToken = await createAccessToken({
+    signingKey: context.env.ACTOR_KIT_SECRET,
+    actorId: context.sessionId,
+    actorType: "session",
+    callerId: context.userId,
+    callerType: "client",
+  });
+  const payload = await fetchSession({
+    actorId: context.sessionId,
+    accessToken,
+  });
+
+  // TODO fetch the session here....
+  return json({
+    sessionId: context.sessionId,
+    accessToken,
+    payload,
+    host: context.env.ACTOR_KIT_HOST,
+    NODE_ENV: context.env.NODE_ENV,
+  });
+}
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  const { sessionId, accessToken, payload, host } =
+    useLoaderData<typeof loader>();
+  return (
+    <SessionActorKitProvider
+      host={host}
+      actorId={sessionId}
+      checksum={payload.checksum}
+      accessToken={accessToken}
+      initialSnapshot={payload.snapshot}
+    >
+      {children}
+    </SessionActorKitProvider>
+  );
+}
+
+export default function App() {
+  const { NODE_ENV } = useLoaderData<typeof loader>();
+  const isDevelopment = NODE_ENV === "development";
+
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        <Layout>
+          <Outlet />
+        </Layout>
+        <ScrollRestoration />
+        <Scripts />
+        {isDevelopment && <LiveReload />}
+      </body>
+    </html>
+  );
+}
