@@ -47,24 +47,9 @@ export async function loader({ params, context }: LoaderFunctionArgs) {
   });
 }
 
-export function Layout({ children }: { children: React.ReactNode }) {
-  const { sessionId, accessToken, payload, host } =
-    useLoaderData<typeof loader>();
-  return (
-    <SessionActorKitProvider
-      host={host}
-      actorId={sessionId}
-      checksum={payload.checksum}
-      accessToken={accessToken}
-      initialSnapshot={payload.snapshot}
-    >
-      {children}
-    </SessionActorKitProvider>
-  );
-}
-
 export default function App() {
-  const { NODE_ENV } = useLoaderData<typeof loader>();
+  const { NODE_ENV, host, sessionId, accessToken, payload } =
+    useLoaderData<typeof loader>();
   const isDevelopment = NODE_ENV === "development";
 
   return (
@@ -76,9 +61,15 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <Layout>
+        <SessionActorKitProvider
+          host={host}
+          actorId={sessionId}
+          checksum={payload.checksum}
+          accessToken={accessToken}
+          initialSnapshot={payload.snapshot}
+        >
           <Outlet />
-        </Layout>
+        </SessionActorKitProvider>
         <ScrollRestoration />
         <Scripts />
         {isDevelopment && <LiveReload />}
