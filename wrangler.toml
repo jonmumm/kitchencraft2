@@ -17,12 +17,17 @@ name = "REMIX"
 class_name = "Remix"
 
 [[durable_objects.bindings]]
-name = "SESSION"
-class_name = "Session"
+name = "USER"
+class_name = "User"
 
 [[migrations]]
 tag = "v1"
 new_classes = ["Remix", "Session"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["User"]
+deleted_classes = ["Session"]
 
 [observability]
 enabled = true

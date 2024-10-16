@@ -1,5 +1,5 @@
-export { Session } from "./app/session.server";
 export { Remix } from "./app/remix.server";
+export { User } from "./app/user.server";
 
 import { logDevReady } from "@remix-run/cloudflare";
 import * as build from "@remix-run/dev/server-build";
@@ -12,7 +12,7 @@ if (process.env.NODE_ENV === "development") {
   logDevReady(build);
 }
 
-const router = createActorKitRouter<Env>(["session"]);
+const router = createActorKitRouter<Env>(["user"]);
 
 export default class Worker extends WorkerEntrypoint<Env> {
   fetch(request: Request): Promise<Response> | Response {

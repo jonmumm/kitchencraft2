@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SessionClientEventSchema = z.discriminatedUnion("type", [
+export const UserClientEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("NEW_CHAT"), text: z.string() }),
 ]);
 
@@ -12,9 +12,13 @@ const RecipeSchema = z.object({
   instructions: z.array(z.string()),
 });
 
-export const SessionServiceEventSchema = z.discriminatedUnion("type", [
+export const UserServiceEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("SYNC_RECIPES"),
     recipes: z.array(RecipeSchema),
   }),
 ]);
+
+export const UserInputPropsSchema = z.object({
+  sessionId: z.string(),
+});

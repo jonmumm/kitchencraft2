@@ -1,4 +1,3 @@
-import { cssBundleHref } from "@remix-run/css-bundle";
 import {
   json,
   Links,
@@ -12,29 +11,44 @@ import {
 
 import type { LinksFunction, LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { createAccessToken, createActorFetch } from "actor-kit/server";
-import { SessionActorKitProvider } from "./session.context";
-import { SessionMachine } from "./session.machine";
+import { UserProvider } from "./user.context";
+import { UserMachine } from "./user.machine";
+
+import styles from "./styles.css";
 
 export const links: LinksFunction = () => [
-  ...(cssBundleHref ? [{ rel: "stylesheet", href: cssBundleHref }] : []),
+  { rel: "stylesheet", href: styles },
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+  },
 ];
 
-export async function loader({ params, context }: LoaderFunctionArgs) {
-  const fetchSession = createActorFetch<SessionMachine>({
-    actorType: "session",
+export async function loader({ request, context }: LoaderFunctionArgs) {
+  const fetchSession = createActorFetch<UserMachine>({
+    actorType: "user",
     host: context.env.ACTOR_KIT_HOST,
   });
 
   const accessToken = await createAccessToken({
     signingKey: context.env.ACTOR_KIT_SECRET,
     actorId: context.sessionId,
-    actorType: "session",
+    actorType: "user",
     callerId: context.userId,
     callerType: "client",
   });
   const payload = await fetchSession({
     actorId: context.sessionId,
     accessToken,
+    input: {
+      url: request.url,
+    },
   });
 
   // TODO fetch the session here....
@@ -61,7 +75,7 @@ export default function App() {
         <Links />
       </head>
       <body>
-        <SessionActorKitProvider
+        <UserProvider
           host={host}
           actorId={sessionId}
           checksum={payload.checksum}
@@ -69,7 +83,7 @@ export default function App() {
           initialSnapshot={payload.snapshot}
         >
           <Outlet />
-        </SessionActorKitProvider>
+        </UserProvider>
         <ScrollRestoration />
         <Scripts />
         {isDevelopment && <LiveReload />}
