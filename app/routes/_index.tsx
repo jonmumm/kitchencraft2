@@ -110,7 +110,6 @@ export default function Homepage() {
         <Drawer.Portal>
           <Drawer.Content className="bg-white flex flex-col rounded-t-[10px] mt-24 fixed bottom-0 left-0 right-0 border-t-2 border-gray-200">
             <div className="p-4 flex-1 overflow-auto">
-              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 mb-8" />
               <div className="max-w-md mx-auto relative">
                 <textarea
                   className="w-full p-3 pr-12 border rounded-md resize-none overflow-hidden"
