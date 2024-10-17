@@ -1,169 +1,168 @@
+import { useStore } from "@nanostores/react";
 import type { MetaFunction } from "@remix-run/cloudflare";
-import { UserContext } from "~/user.context";
-import { Drawer } from 'vaul';
+import { useNavigate, useSearchParams } from "@remix-run/react";
+import { ArrowUp } from "lucide-react";
+import { nanoid } from "nanoid";
+import { atom, computed, map } from "nanostores";
+import { Drawer } from "vaul";
+import { Button } from "~/components/ui/button";
+import { RecipeIdeasMetadataOutput } from "~/models/more-recipes.model";
 
 export const meta: MetaFunction = () => {
   return [{ title: "KitchenCraft" }];
 };
 
-export default function Homepage() {
-  const userId = UserContext.useSelector((state) => state.public.ownerId);
-  return (
-    <div>
-      <div>Hello KitchenCraft</div>
-      <div>{userId}</div>
-      <VaulDrawer />
-    </div>
-  );
+const promptOpen$ = atom(true);
+const inputValue$ = atom("");
+
+// Create a cached element for height calculations
+let cachedTextArea: HTMLTextAreaElement | null = null;
+
+const textareaHeight$ = computed(inputValue$, (value) => {
+  if (typeof window === "undefined") return "auto"; // Handle SSR
+
+  if (!cachedTextArea) {
+    cachedTextArea = document.createElement("textarea");
+    cachedTextArea.style.height = "auto";
+    cachedTextArea.style.position = "absolute";
+    cachedTextArea.style.visibility = "hidden";
+    cachedTextArea.style.width = "100%"; // Match the width of your actual textarea
+    cachedTextArea.style.padding = "12px"; // Match the padding of your actual textarea
+    document.body.appendChild(cachedTextArea);
+  }
+
+  cachedTextArea.value = value;
+  const height = cachedTextArea.scrollHeight;
+
+  const MAX_HEIGHT = 300;
+
+  return `${Math.max(40, Math.min(MAX_HEIGHT, height))}px`;
+});
+
+// Define the base message interface
+interface BaseMessage {
+  id: string;
+  threadId: string;
+  sender: string;
 }
 
-function VaulDrawer() {
+// Define the plain message type
+interface PlainMessage extends BaseMessage {
+  type: "plain";
+  body: string;
+}
+
+interface InstantRecipeMessage extends BaseMessage {
+  type: "instant_recipe";
+  recipe: RecipeIdeasMetadataOutput;
+  sender: string;
+}
+
+// Define the union type for all message types
+type Message = PlainMessage | InstantRecipeMessage; // In the future, add more types here
+
+// Message cache store
+const messageCache$ = map<Record<string, Message>>({});
+
+// Threads store
+const threads$ = map<Record<string, string[]>>({});
+
+export default function Homepage() {
+  const promptOpen = useStore(promptOpen$);
+  const inputValue = useStore(inputValue$);
+  const textareaHeight = useStore(textareaHeight$);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const messageId = searchParams.get("messageId");
+
+  const messages = useStore(messageCache$);
+  const threadsStore = useStore(threads$);
+
+  // Get the current thread's messages
+  const currentThreadMessages = messageId
+    ? (threadsStore[messages[messageId]?.threadId] || [])
+        .map((id) => messages[id])
+        .filter(Boolean)
+    : [];
+
   return (
-    <Drawer.Root>
-      <Drawer.Trigger className="relative flex h-10 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-4 text-sm font-medium shadow-sm transition-all hover:bg-[#FAFAFA] dark:bg-[#161615] dark:hover:bg-[#1A1A19] dark:text-white">
-        Open Drawer
-      </Drawer.Trigger>
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-        <Drawer.Content className="bg-gray-100 flex flex-col rounded-t-[10px] h-full mt-24 lg:h-fit max-h-[96%] fixed bottom-0 left-0 right-0">
-          <div className="p-4 bg-white rounded-t-[10px] flex-1">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 mb-8" />
-            <div className="max-w-md mx-auto">
-              <Drawer.Title className="font-medium mb-4 text-gray-900">Nested Drawers.</Drawer.Title>
-              <p className="text-gray-600 mb-2">
-                Nesting drawers creates a{' '}
-                <a href="https://sonner.emilkowal.ski/" target="_blank" className="underline">
-                  Sonner-like
-                </a>{' '}
-                stacking effect .
-              </p>
-              <p className="text-gray-600 mb-2">
-                You can nest as many drawers as you want. All you need to do is add a `Drawer.NestedRoot` component
-                instead of `Drawer.Root`.
-              </p>
-              <Drawer.NestedRoot>
-                <Drawer.Trigger className="rounded-md mt-4 w-full bg-gray-900 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-600">
-                  Open Second Drawer
-                </Drawer.Trigger>
-                <Drawer.Portal>
-                  <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-                  <Drawer.Content className="bg-gray-100 flex flex-col rounded-t-[10px] lg:h-[327px] h-full mt-24 max-h-[94%] fixed bottom-0 left-0 right-0">
-                    <div className="p-4 bg-white rounded-t-[10px] flex-1">
-                      <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 mb-8" />
-                      <div className="max-w-md mx-auto">
-                        <Drawer.Title className="font-medium mb-4 text-gray-900">This drawer is nested.</Drawer.Title>
-                        <p className="text-gray-600 mb-2">
-                          If you pull this drawer down a bit, it&apos;ll scale the drawer underneath it as well.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-100 border-t border-gray-200 mt-auto">
-                      <div className="flex gap-6 justify-end max-w-md mx-auto">
-                        <a
-                          className="text-xs text-gray-600 flex items-center gap-0.25"
-                          href="https://github.com/emilkowalski/vaul"
-                          target="_blank"
-                        >
-                          GitHub
-                          <svg
-                            fill="none"
-                            height="16"
-                            stroke="currentColor"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            width="16"
-                            aria-hidden="true"
-                            className="w-3 h-3 ml-1"
-                          >
-                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
-                            <path d="M15 3h6v6"></path>
-                            <path d="M10 14L21 3"></path>
-                          </svg>
-                        </a>
-                        <a
-                          className="text-xs text-gray-600 flex items-center gap-0.25"
-                          href="https://twitter.com/emilkowalski_"
-                          target="_blank"
-                        >
-                          Twitter
-                          <svg
-                            fill="none"
-                            height="16"
-                            stroke="currentColor"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            width="16"
-                            aria-hidden="true"
-                            className="w-3 h-3 ml-1"
-                          >
-                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
-                            <path d="M15 3h6v6"></path>
-                            <path d="M10 14L21 3"></path>
-                          </svg>
-                        </a>
-                      </div>
-                    </div>
-                  </Drawer.Content>
-                </Drawer.Portal>
-              </Drawer.NestedRoot>
-            </div>
+    <div className="flex flex-col h-screen bg-white">
+      <header className="p-4 flex justify-between items-center">
+        <div className="text-xl font-bold">Kitchen Craft</div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {currentThreadMessages.map((message, index) => (
+          <div
+            key={message.id}
+            className={`mb-2 p-2 rounded-lg max-w-[70%] ${
+              message.sender === "user"
+                ? "ml-auto bg-blue-500 text-white"
+                : "mr-auto bg-gray-200 text-black"
+            }`}
+          >
+            {message.type === "plain" && message.body}
           </div>
-          <div className="p-4 bg-gray-100 border-t border-gray-200 mt-auto">
-            <div className="flex gap-6 justify-end max-w-md mx-auto">
-              <a
-                className="text-xs text-gray-600 flex items-center gap-0.25"
-                href="https://github.com/emilkowalski/vaul"
-                target="_blank"
-              >
-                GitHub
-                <svg
-                  fill="none"
-                  height="16"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  width="16"
-                  aria-hidden="true"
-                  className="w-3 h-3 ml-1"
-                >
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
-                  <path d="M15 3h6v6"></path>
-                  <path d="M10 14L21 3"></path>
-                </svg>
-              </a>
-              <a
-                className="text-xs text-gray-600 flex items-center gap-0.25"
-                href="https://twitter.com/emilkowalski_"
-                target="_blank"
-              >
-                Twitter
-                <svg
-                  fill="none"
-                  height="16"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  width="16"
-                  aria-hidden="true"
-                  className="w-3 h-3 ml-1"
-                >
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"></path>
-                  <path d="M15 3h6v6"></path>
-                  <path d="M10 14L21 3"></path>
-                </svg>
-              </a>
+        ))}
+      </div>
+
+      <Drawer.Root open={promptOpen} onOpenChange={promptOpen$.set}>
+        <Drawer.Portal>
+          <Drawer.Content className="bg-white flex flex-col rounded-t-[10px] mt-24 fixed bottom-0 left-0 right-0 border-t-2 border-gray-200">
+            <div className="p-4 flex-1 overflow-auto">
+              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-gray-300 mb-8" />
+              <div className="max-w-md mx-auto relative">
+                <textarea
+                  className="w-full p-3 pr-12 border rounded-md resize-none overflow-hidden"
+                  placeholder="Type your message..."
+                  value={inputValue}
+                  onChange={(e) => inputValue$.set(e.target.value)}
+                  style={{ height: textareaHeight }}
+                />
+                {inputValue.trim() !== "" && (
+                  <Button
+                    className="absolute top-2 right-2 p-2 text-blue-500 hover:text-blue-600 transition-colors"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      const newMessageId = nanoid();
+                      const threadId = messageId
+                        ? messages[messageId]?.threadId
+                        : newMessageId;
+
+                      const newMessage: Message = {
+                        id: newMessageId,
+                        threadId,
+                        sender: "user",
+                        type: "plain",
+                        body: inputValue,
+                      };
+
+                      messageCache$.setKey(newMessageId, newMessage);
+
+                      if (threadId === newMessageId) {
+                        threads$.setKey(threadId, [newMessageId]);
+                      } else {
+                        const currentThread = threadsStore[threadId] || [];
+                        threads$.setKey(threadId, [
+                          ...currentThread,
+                          newMessageId,
+                        ]);
+                      }
+
+                      console.log("Submitted:", newMessage);
+                      navigate(`?messageId=${newMessageId}`);
+                      inputValue$.set("");
+                    }}
+                  >
+                    <ArrowUp />
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+    </div>
   );
 }
