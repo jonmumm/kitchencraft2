@@ -1,7 +1,12 @@
 import { z } from "zod";
 
 export const UserClientEventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("NEW_CHAT"), text: z.string() }),
+  z.object({
+    type: z.literal("NEW_MESSAGE"),
+    text: z.string(),
+    messageId: z.string(),
+    threadId: z.string(),
+  }),
 ]);
 
 const RecipeSchema = z.object({
