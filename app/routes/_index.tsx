@@ -1,6 +1,7 @@
 import { useStore } from "@nanostores/react";
 import type { MetaFunction } from "@remix-run/cloudflare";
 import { useSearchParams } from "@remix-run/react";
+import { Textarea } from "components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import { nanoid } from "nanoid";
 import { atom, computed, map } from "nanostores";
@@ -168,13 +169,13 @@ export default function Homepage() {
     );
   };
 
-  const Textarea = () => {
+  const AdjustableTextarea = () => {
     const inputValue = useStore(inputValue$);
     const textareaHeight = useStore(textareaHeight$);
 
     return (
-      <textarea
-        className="w-full p-3 pr-12 border rounded-md resize-none overflow-hidden"
+      <Textarea
+        className="w-full p-3 pr-12 border rounded-md resize-none overflow-hidden bg-white text-black"
         placeholder="Type your message..."
         value={inputValue}
         onChange={(e) => inputValue$.set(e.target.value)}
@@ -198,7 +199,7 @@ export default function Homepage() {
           <Drawer.Content className="bg-white flex flex-col rounded-t-[10px] mt-24 fixed bottom-0 left-0 right-0 border-t-2 border-gray-200">
             <div className="p-4 flex-1 overflow-auto">
               <div className="max-w-md mx-auto relative">
-                <Textarea />
+                <AdjustableTextarea />
                 <SubmitButton />
               </div>
             </div>

@@ -1,5 +1,6 @@
 import type {
   ActorKitSystemEvent,
+  BaseActorKitEvent,
   WithActorKitEvent,
   WithActorKitInput,
 } from "actor-kit";
@@ -20,15 +21,15 @@ export type UserPublicContext = {
   lastSync: number | null;
 };
 
-type ChatId = string;
-type SessionId = string;
+type ThreadId = string;
 
 export type UserPrivateContext = {
-  chatIds: ChatId[];
-  sessionIds: SessionId[];
+  recentThreadIds: ThreadId[];
 };
 
-export type UserEvent =
+export type UserEvent = (
   | WithActorKitEvent<UserClientEvent, "client">
   | WithActorKitEvent<UserServiceEvent, "service">
-  | ActorKitSystemEvent;
+  | ActorKitSystemEvent
+) &
+  BaseActorKitEvent;
