@@ -4,7 +4,8 @@
     "types": [
       "@remix-run/cloudflare",
       "@types/node",
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "./sql.d.ts"
     ],
     "isolatedModules": true,
     "esModuleInterop": true,

@@ -7,6 +7,9 @@ export const UserClientEventSchema = z.discriminatedUnion("type", [
     messageId: z.string(),
     threadId: z.string(),
   }),
+  z.object({
+    type: z.literal("CREATE_THREAD"),
+  }),
 ]);
 
 const RecipeSchema = z.object({

@@ -19,4 +19,5 @@ export default {
   dev: {
     port: 8002,
   },
+  serverDependenciesToBundle: [/^.*\.sql$/],
 };

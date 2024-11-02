@@ -1,0 +1,8 @@
+graph TD
+    U[User Actor] -->|CREATE_THREAD| T[Thread Actor]
+    T -->|THREAD_CREATED| TI[ThreadIndex Actor]
+    T -->|MESSAGE_CREATED| U
+    T -->|RECIPE_REFERENCED| R[Recipe Actor]
+    R -->|RECIPE_UPDATED| RI[RecipeIndex Actor]
+    R -->|MEDIA_ADDED| M[Media Actor]
+    A[Analytics Actor] -->|METRICS_UPDATED| U

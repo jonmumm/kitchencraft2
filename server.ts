@@ -1,4 +1,5 @@
 export { Remix } from "./app/remix.server";
+export { Thread } from "./app/thread.server";
 export { User } from "./app/user.server";
 
 import { logDevReady } from "@remix-run/cloudflare";

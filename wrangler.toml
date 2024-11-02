@@ -20,9 +20,18 @@ class_name = "Remix"
 name = "USER"
 class_name = "User"
 
+[[durable_objects.bindings]]
+name = "THREAD"
+class_name = "Thread"
+
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["Remix", "User"]
+new_sqlite_classes = ["Remix", "User", "Thread"]
 
 [observability]
 enabled = true
+
+[[d1_databases]]
+binding = "DB"                                       # i.e. available in your Worker on env.DB
+database_name = "kitchencraft-prod"
+database_id = "e52d01dd-13f8-46d4-ade8-5c4dca128179"

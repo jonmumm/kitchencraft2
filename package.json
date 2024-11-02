@@ -5,6 +5,8 @@
   "scripts": {
     "deploy": "remix build && wrangler deploy",
     "dev": "remix dev -c \"wrangler dev\"",
+    "generate": "drizzle-kit generate:sqlite --schema=src/schema.ts",
+    "up": "drizzle-kit up:sqlite --schema=src/schema.ts",
     "cf-typegen": "wrangler types",
     "typecheck": "tsc"
   },
@@ -30,10 +32,13 @@
     "@remix-run/server-runtime": "^2.13.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "actor-kit": "^0.27.0",
+    "actor-kit": "^0.33.0",
     "ai": "^3.4.14",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "drizzle-kit": "^0.26.2",
+    "drizzle-orm": "^0.35.3",
+    "immer": "^10.1.1",
     "isbot": "^4",
     "lucide-react": "^0.453.0",
     "nanoid": "^5.0.7",
@@ -44,12 +49,16 @@
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.6.3",
+    "u": "^0.1.0",
+    "uid": "^2.0.2",
+    "uuid": "^10.0.0",
     "vaul": "^1.0.0",
     "wrangler": "^3.80.2",
     "xstate": "^5.18.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14"
