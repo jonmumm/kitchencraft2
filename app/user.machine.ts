@@ -1,7 +1,7 @@
-import type { ActorKitStateMachine } from "actor-kit";
+import type { ActorKitStateMachine, Caller } from "actor-kit";
 import { produce } from "immer";
 import { v7 as uuidv7 } from "uuid";
-import { assign, createMachine, fromPromise, sendTo } from "xstate";
+import { assign, setup } from "xstate";
 import { z } from "zod";
 import { invariant } from "./lib/utils";
 import {
@@ -10,6 +10,7 @@ import {
   UserProfileSchema,
   UserSchema,
 } from "./schemas";
+import { ThreadMachine } from "./thread.machine";
 import type {
   ExtractType,
   InsertMessage,
@@ -22,12 +23,12 @@ import type {
 } from "./types";
 import sqlSchema from "./user.tables.sql";
 import {
-  actorKitThread,
   type UserEvent,
   type UserInput,
   type UserPrivateContext,
   type UserPublicContext,
 } from "./user.types";
+import { fromActorKit } from "./utils";
 
 export const MessageInputSchema = z.object({
   id: z.string(),
@@ -47,7 +48,7 @@ export type MessagesArray = z.infer<typeof MessagesArraySchema>;
 type UserPersistedContext = {
   public: UserPublicContext;
   private: Record<string, UserPrivateContext>;
-  threadIds: string[];
+  childrenActorIds: { [K in `thread-${string}`]: number };
 };
 
 function initializeTables(storage: DurableObjectStorage): void {
@@ -116,27 +117,6 @@ function getNextMessagePosition(
  * @param context - The current context of the state machine.
  * @param event - The event that triggered this action.
  */
-function createThreadAction({ event }: { event: UserEvent }): void {
-  if (event.type === "CREATE_THREAD" && "storage" in event) {
-    // // Create thread in storage
-    // const thread = createThread(event.storage, {});
-    // // Set up WebSocket connection to the new thread
-    // const threadId = event.env.THREAD.idFromName(thread.id);
-    // const threadStub = event.env.THREAD.get(threadId);
-    // const { 0: clientSocket, 1: serverSocket } = new WebSocketPair();
-    // // Send the server socket to the thread DO
-    // threadStub.fetch(
-    //   new Request("https://socket-setup", {
-    //     method: "POST",
-    //   })
-    // );
-    // // Set up client socket handlers
-    // clientSocket.accept();
-    // clientSocket.addEventListener("message", (msg) => {
-    //   console.log("Received message from thread:", msg.data);
-    // });
-  }
-}
 
 // Define a schema for the SQL result
 const SqlResultSchema = z
@@ -158,12 +138,6 @@ const ThreadSchema = z.object({
   id: z.string(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
-});
-
-const CreateMessageInput = z.object({
-  content: z.string(),
-  role: z.enum(["user", "assistant"]),
-  type: z.enum(["text", "recipe", "image", "file"]),
 });
 
 const CreateThreadInput = z.object({
@@ -338,178 +312,153 @@ function createThread(
 //   });
 // };
 
-export const userMachine = createMachine(
-  {
-    id: "user",
-    type: "parallel",
-    types: {
-      context: {} as UserPersistedContext,
-      events: {} as UserEvent,
-      input: {} as UserInput,
-    },
-    context: ({ input }: { input: UserInput }) => {
-      console.log("initializing context", input);
-      // initializeTables(input.storage);
-
-      return {
-        public: {
-          ownerId: input.caller.id,
-          threads: {},
-          lastSync: null,
-        },
-        private: {
-          [input.caller.id]: {
-            recentThreadIds: [],
-            sessionIds: [],
-            activeThreads: {},
+export const userMachine = setup({
+  types: {
+    context: {} as UserPersistedContext,
+    events: {} as UserEvent,
+    input: {} as UserInput,
+  },
+  actors: {
+    thread: fromActorKit<ThreadMachine>("thread"),
+  },
+  actions: {
+    spawnThread: assign(
+      (
+        { context, spawn },
+        {
+          threadId,
+          caller,
+          signingKey,
+        }: {
+          caller: Caller;
+          threadId: string;
+          signingKey: string;
+        }
+      ) => {
+        spawn("thread", {
+          id: threadId,
+          input: {
+            actorId: threadId,
+            actorInput: {
+              id: threadId,
+            },
+            caller,
+            signingKey,
           },
-        },
-        threadIds: [],
-      };
+        });
+        return produce(context, (draft) => {
+          draft.childrenActorIds[`thread-${threadId}`] = Date.now();
+        });
+      }
+    ),
+  },
+  guards: {
+    threadNotRunning: ({ context }, params: { threadId: string }) => {
+      return !context.childrenActorIds[`thread-${params.threadId}`];
     },
-    states: {
-      Initialization: {
-        initial: "Ready",
-        states: {
-          Ready: {},
+  },
+}).createMachine({
+  id: "user",
+  type: "parallel",
+  context: ({ input }: { input: UserInput }) => {
+    console.log("initializing context", input);
+    // initializeTables(input.storage);
+
+    return {
+      public: {
+        ownerId: input.caller.id,
+        threads: {},
+        lastSync: null,
+      },
+      private: {
+        [input.caller.id]: {
+          recentThreadIds: [],
+          sessionIds: [],
+          activeThreads: {},
         },
       },
-      Row: {
-        initial: "Uninitialized",
-        states: {
-          Uninitialized: {
-            always: {
-              target: "Initializing",
-              guard: ({ event }: { event: UserEvent }) => !!event.env,
-            },
+      childrenActorIds: {},
+    };
+  },
+  states: {
+    Initialization: {
+      initial: "Ready",
+      states: {
+        Ready: {},
+      },
+    },
+    Row: {
+      initial: "Uninitialized",
+      states: {
+        Uninitialized: {
+          always: {
+            target: "Initializing",
+            guard: ({ event }: { event: UserEvent }) => !!event.env,
           },
-          Initializing: {
-            invoke: {
-              src: "createUser",
-              input: ({ event }: { event: UserEvent }) => {
-                console.log("Creating user", event);
-                invariant(event.env.DB, "DB is required");
-                // event.env.THREAD.idFromName(event.)
+        },
+        Initializing: {},
+        Created: {},
+      },
+    },
 
-                return {
-                  DB: event.env.DB as D1Database,
-                };
-              },
-              onDone: "Created",
+    Threads: {
+      initial: "Idle",
+      on: {
+        NEW_MESSAGE: [
+          {
+            guard: {
+              type: "threadNotRunning",
+              params: ({
+                event,
+              }: {
+                event: ExtractType<UserEvent, "NEW_MESSAGE">;
+              }) => ({ threadId: event.threadId }),
+            },
+            actions: {
+              type: "spawnThread",
+              params: ({
+                event,
+              }: {
+                event: ExtractType<UserEvent, "NEW_MESSAGE">;
+              }) => ({
+                threadId: event.threadId,
+                caller: event.caller,
+                signingKey:
+                  (invariant(event.env, "env is required"),
+                  event.env.ACTOR_KIT_SECRET),
+              }),
             },
           },
-          Created: {},
+          // actions: sendTo(
+          //   ({ event }: { event: ExtractType<UserEvent, "NEW_MESSAGE"> }) =>
+          //     event.threadId,
+          //   {
+          //     type: "NEW_MESSAGE",
+          //   }
+          // ),
+        ],
+        THREAD_INITIALIZED: {
+          // actions: ({ event }) => {
+          //   console.log("THREAD_INITIALIZED", event, event.snapshot);
+          // },
+        },
+        THREAD_ERROR: {
+          // actions: ({ event }) => {
+          //   console.log("THREAD_ERROR", event);
+          // },
+        },
+        THREAD_UPDATED: {
+          // actions: ({ event }) => {
+          //   console.log("THREAD_UPDATED", event);
+          // },
         },
       },
-
-      Threads: {
-        initial: "Idle",
-        on: {
-          NEW_MESSAGE: [
-            {
-              guard: ({ context, event }) => {
-                // todo: check on the context if thread already exists for this threadId on the evnet
-                const threadId = event.threadId;
-                const threadExists = context.public.threads[threadId];
-                return !threadExists;
-              },
-              actions: assign<UserPersistedContext, UserEvent, any, any, any>(
-                ({ context, event, spawn }) => {
-                  if (event.type === "NEW_MESSAGE") {
-                    const ref = spawn(actorKitThread, {
-                      id: event.threadId,
-                      input: {
-                        actorId: event.threadId,
-                        actorInput: {
-                          id: event.threadId,
-                        },
-                        caller: event.caller,
-                        signingKey: event.env.ACTOR_KIT_SECRET,
-                      },
-                    });
-                    return produce(context, (draft) => {
-                      draft.private[event.caller.id].activeThreads[
-                        event.threadId
-                      ] = ref;
-                    });
-                  }
-                  return context;
-                }
-              ),
-            },
-            {
-              actions: sendTo(
-                ({ event }: { event: ExtractType<UserEvent, "NEW_MESSAGE"> }) =>
-                  event.threadId,
-                {
-                  type: "NEW_MESSAGE",
-                }
-              ),
-            },
-          ],
-          THREAD_INITIALIZED: {
-            actions: ({ event }) => {
-              console.log("THREAD_INITIALIZED", event, event.snapshot);
-            },
-          },
-          THREAD_ERROR: {
-            actions: ({ event }) => {
-              console.log("THREAD_ERROR", event);
-            },
-          },
-          THREAD_UPDATED: {
-            actions: ({ event }) => {
-              console.log("THREAD_UPDATED", event);
-            },
-          },
-        },
-        states: {
-          Idle: {},
-        },
+      states: {
+        Idle: {},
       },
     },
   },
-  {
-    guards: {
-      isOwner: ({ context, event }) =>
-        event.caller.id === context.public.ownerId,
-      shouldSpawnThread: ({ context, event }) => {
-        if (event.type === "NEW_MESSAGE") {
-          return !context.public.threads[event.threadId];
-        }
-        return false;
-      },
-    },
-    actions: {
-      createThreadAction,
-    },
-    actors: {
-      createUser: fromPromise(
-        async ({ input }: { input: { DB: D1Database } }) => {
-          const { DB } = input;
-          const id = uuidv7();
-          const now = new Date().toISOString();
-
-          // // Insert just the base user
-          // await DB.prepare(
-          //   `INSERT INTO users (id, created_at, updated_at)
-          //    VALUES (?, ?, ?)`
-          // )
-          //   .bind(id, now, now)
-          //   .run();
-
-          // // Fetch and return the created user
-          // const user = await getUser(DB, id);
-          // if (!user) {
-          //   throw new Error("Failed to create user");
-          // }
-
-          // return user;
-        }
-      ),
-    },
-  }
-) satisfies ActorKitStateMachine<UserEvent, UserInput, UserPersistedContext>;
+}) satisfies ActorKitStateMachine<UserEvent, UserInput, UserPersistedContext>;
 
 export type UserMachine = typeof userMachine;
 

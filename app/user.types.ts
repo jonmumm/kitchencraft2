@@ -31,7 +31,6 @@ type ThreadActorRef = ActorRefFromLogic<typeof actorKitThread>;
 export type UserPublicContext = {
   ownerId: string;
   lastSync: number | null;
-  threads: Partial<Record<ThreadId, CallerSnapshotFrom<ThreadMachine>>>;
 };
 
 export type UserPrivateContext = {
