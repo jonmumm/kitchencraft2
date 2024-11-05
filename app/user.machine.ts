@@ -1,7 +1,7 @@
-import type { ActorKitStateMachine, Caller } from "actor-kit";
+import type { ActorKitStateMachine, ActorServer, Caller } from "actor-kit";
 import { produce } from "immer";
 import { v7 as uuidv7 } from "uuid";
-import { assign, setup } from "xstate";
+import { ActorRefFrom, assign, sendTo, setup } from "xstate";
 import { z } from "zod";
 import { invariant } from "./lib/utils";
 import {
@@ -45,10 +45,14 @@ export const MessagesArraySchema = z.array(MessageInputSchema);
 
 export type MessagesArray = z.infer<typeof MessagesArraySchema>;
 
-type UserPersistedContext = {
+const threadActor = fromActorKit<ThreadMachine>("thread");
+
+type UserServerContext = {
   public: UserPublicContext;
   private: Record<string, UserPrivateContext>;
-  childrenActorIds: { [K in `thread-${string}`]: number };
+  children: {
+    thread: Partial<Record<string, ActorRefFrom<typeof threadActor>>>;
+  };
 };
 
 function initializeTables(storage: DurableObjectStorage): void {
@@ -314,7 +318,7 @@ function createThread(
 
 export const userMachine = setup({
   types: {
-    context: {} as UserPersistedContext,
+    context: {} as UserServerContext,
     events: {} as UserEvent,
     input: {} as UserInput,
   },
@@ -322,22 +326,38 @@ export const userMachine = setup({
     thread: fromActorKit<ThreadMachine>("thread"),
   },
   actions: {
+    // sendMessageToThread: (
+    //   _,
+    //   params: {
+    //     threadId: string;
+    //     messageId: string;
+    //     text: string;
+    //   }
+    // ) => {
+    //   console.log("sendMessageToThread", params);
+    // },
     spawnThread: assign(
       (
         { context, spawn },
+
         {
+          server,
           threadId,
           caller,
           signingKey,
         }: {
+          server: DurableObjectNamespace<ActorServer<ThreadMachine>>;
           caller: Caller;
           threadId: string;
           signingKey: string;
         }
       ) => {
-        spawn("thread", {
-          id: threadId,
+        const actorId = `thread-${threadId}` as const;
+
+        const ref = spawn("thread", {
+          id: actorId,
           input: {
+            server: server,
             actorId: threadId,
             actorInput: {
               id: threadId,
@@ -347,14 +367,14 @@ export const userMachine = setup({
           },
         });
         return produce(context, (draft) => {
-          draft.childrenActorIds[`thread-${threadId}`] = Date.now();
+          draft.children.thread[actorId] = ref;
         });
       }
     ),
   },
   guards: {
     threadNotRunning: ({ context }, params: { threadId: string }) => {
-      return !context.childrenActorIds[`thread-${params.threadId}`];
+      return !context.children.thread[params.threadId];
     },
   },
 }).createMachine({
@@ -377,7 +397,9 @@ export const userMachine = setup({
           activeThreads: {},
         },
       },
-      childrenActorIds: {},
+      children: {
+        thread: {},
+      },
     };
   },
   states: {
@@ -423,34 +445,57 @@ export const userMachine = setup({
               }) => ({
                 threadId: event.threadId,
                 caller: event.caller,
+                server: event.env.THREAD,
                 signingKey:
                   (invariant(event.env, "env is required"),
                   event.env.ACTOR_KIT_SECRET),
               }),
             },
           },
-          // actions: sendTo(
-          //   ({ event }: { event: ExtractType<UserEvent, "NEW_MESSAGE"> }) =>
-          //     event.threadId,
-          //   {
-          //     type: "NEW_MESSAGE",
-          //   }
-          // ),
+          {
+            actions: sendTo<
+              UserServerContext,
+              ExtractType<UserEvent, "NEW_MESSAGE">,
+              any,
+              NonNullable<UserServerContext["children"]["thread"][string]>,
+              any
+            >(
+              ({
+                context,
+                event,
+              }: {
+                context: UserServerContext;
+                event: ExtractType<UserEvent, "NEW_MESSAGE">;
+              }) => {
+                const thread = context.children.thread[event.threadId];
+                invariant(thread, "thread not found");
+                invariant(event.caller, "caller is required");
+                return thread;
+              },
+              ({ event }) => ({
+                type: "NEW_MESSAGE",
+                content: event.text,
+                caller: { type: "service" as const, id: event.caller.id },
+                storage: event.storage,
+                env: event.env,
+              })
+            ),
+          },
         ],
         THREAD_INITIALIZED: {
-          // actions: ({ event }) => {
-          //   console.log("THREAD_INITIALIZED", event, event.snapshot);
-          // },
+          actions: console.log,
         },
         THREAD_ERROR: {
-          // actions: ({ event }) => {
-          //   console.log("THREAD_ERROR", event);
-          // },
+          actions: console.error,
         },
         THREAD_UPDATED: {
-          // actions: ({ event }) => {
-          //   console.log("THREAD_UPDATED", event);
-          // },
+          actions: ({
+            event,
+          }: {
+            event: ExtractType<UserEvent, "THREAD_UPDATED">;
+          }) => {
+            console.log("THREAD_UPDATED", event.snapshot);
+          },
         },
       },
       states: {
@@ -458,7 +503,7 @@ export const userMachine = setup({
       },
     },
   },
-}) satisfies ActorKitStateMachine<UserEvent, UserInput, UserPersistedContext>;
+}) satisfies ActorKitStateMachine<UserEvent, UserInput, UserServerContext>;
 
 export type UserMachine = typeof userMachine;
 

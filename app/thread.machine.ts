@@ -18,6 +18,7 @@ export const threadMachine = setup({
   id: "user",
   type: "parallel",
   context: ({ input }: { input: ThreadInput }) => {
+    console.log("THREAD CONTEXT", input);
     return {
       public: {
         ownerId: input.caller.id,
