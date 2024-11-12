@@ -57,25 +57,30 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const core = require('@actions/core');
+            
             try {
               // Try to read from the coverage directory
               const coverageFiles = fs.readdirSync('coverage/storybook');
               console.log('Coverage directory contents:', coverageFiles);
               
               let coverageData;
-              // Look for either coverage-summary.json or coverage-final.json
-              if (fs.existsSync('coverage/storybook/coverage-summary.json')) {
-                coverageData = JSON.parse(fs.readFileSync('coverage/storybook/coverage-summary.json', 'utf8'));
-              } else if (fs.existsSync('coverage/storybook/coverage-final.json')) {
-                const finalCoverage = JSON.parse(fs.readFileSync('coverage/storybook/coverage-final.json', 'utf8'));
-                // Calculate total coverage from coverage-final.json
-                const totals = Object.values(finalCoverage).reduce((acc, file) => {
-                  acc.statements.total += file.s ? Object.keys(file.s).length : 0;
-                  acc.statements.covered += file.s ? Object.values(file.s).filter(v => v > 0).length : 0;
-                  return acc;
-                }, { statements: { total: 0, covered: 0 } });
+              // Look for coverage-storybook.json first
+              if (fs.existsSync('coverage/storybook/coverage-storybook.json')) {
+                coverageData = JSON.parse(fs.readFileSync('coverage/storybook/coverage-storybook.json', 'utf8'));
+              } else if (fs.existsSync('coverage/storybook/lcov.info')) {
+                // Parse lcov.info if json not available
+                const lcovContent = fs.readFileSync('coverage/storybook/lcov.info', 'utf8');
+                const lines = lcovContent.split('\n');
+                let totalLines = 0;
+                let coveredLines = 0;
                 
-                const percentage = (totals.statements.covered / totals.statements.total) * 100;
+                lines.forEach(line => {
+                  if (line.startsWith('LF:')) totalLines += parseInt(line.slice(3));
+                  if (line.startsWith('LH:')) coveredLines += parseInt(line.slice(3));
+                });
+                
+                const percentage = (coveredLines / totalLines) * 100;
                 coverageData = {
                   total: {
                     statements: {
@@ -84,7 +89,7 @@ jobs:
                   }
                 };
               } else {
-                throw new Error('No coverage files found');
+                throw new Error(`No coverage files found. Available files: ${coverageFiles.join(', ')}`);
               }
               
               const percentage = coverageData.total.statements.pct;
@@ -100,6 +105,8 @@ jobs:
               };
               
               fs.writeFileSync('coverage-badge.json', JSON.stringify(badge));
+              console.log('Successfully generated coverage badge with percentage:', percentage);
+              
             } catch (error) {
               console.error('Error generating coverage badge:', error);
               core.setFailed(`Failed to generate coverage badge: ${error.message}`);
