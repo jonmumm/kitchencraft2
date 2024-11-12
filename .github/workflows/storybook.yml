@@ -63,10 +63,27 @@ jobs:
               const coverageFiles = fs.readdirSync('coverage/storybook');
               console.log('Coverage directory contents:', coverageFiles);
               
-              let coverageData;
+              let percentage = 0;
+              
               // Look for coverage-storybook.json first
               if (fs.existsSync('coverage/storybook/coverage-storybook.json')) {
-                coverageData = JSON.parse(fs.readFileSync('coverage/storybook/coverage-storybook.json', 'utf8'));
+                const rawData = JSON.parse(fs.readFileSync('coverage/storybook/coverage-storybook.json', 'utf8'));
+                console.log('Raw coverage data:', JSON.stringify(rawData, null, 2));
+                
+                // Calculate total coverage from all files
+                let totalStatements = 0;
+                let coveredStatements = 0;
+                
+                Object.values(rawData).forEach((fileData) => {
+                  if (typeof fileData === 'object' && fileData !== null) {
+                    const statements = fileData.s || {};
+                    totalStatements += Object.keys(statements).length;
+                    coveredStatements += Object.values(statements).filter(v => v > 0).length;
+                  }
+                });
+                
+                percentage = totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0;
+                
               } else if (fs.existsSync('coverage/storybook/lcov.info')) {
                 // Parse lcov.info if json not available
                 const lcovContent = fs.readFileSync('coverage/storybook/lcov.info', 'utf8');
@@ -79,19 +96,14 @@ jobs:
                   if (line.startsWith('LH:')) coveredLines += parseInt(line.slice(3));
                 });
                 
-                const percentage = (coveredLines / totalLines) * 100;
-                coverageData = {
-                  total: {
-                    statements: {
-                      pct: Math.round(percentage * 100) / 100
-                    }
-                  }
-                };
+                percentage = totalLines > 0 ? (coveredLines / totalLines) * 100 : 0;
               } else {
                 throw new Error(`No coverage files found. Available files: ${coverageFiles.join(', ')}`);
               }
               
-              const percentage = coverageData.total.statements.pct;
+              // Round to 2 decimal places
+              percentage = Math.round(percentage * 100) / 100;
+              
               const badgeColor = percentage > 80 ? 'green' 
                 : percentage > 60 ? 'yellow'
                 : 'red';
