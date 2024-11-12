@@ -1,0 +1,1 @@
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jonmumm/kitchencraft2/badges/.github/badges/coverage-badge.json)](https://github.com/jonmumm/kitchencraft2/actions) 
