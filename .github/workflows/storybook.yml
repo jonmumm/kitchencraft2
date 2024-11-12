@@ -57,21 +57,53 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const coverage = JSON.parse(fs.readFileSync('coverage/storybook/coverage-summary.json', 'utf8'));
-            const percentage = coverage.total.statements.pct;
-            
-            const badgeColor = percentage > 80 ? 'green' 
-              : percentage > 60 ? 'yellow'
-              : 'red';
-            
-            const badge = {
-              schemaVersion: 1,
-              label: 'coverage',
-              message: `${percentage}%`,
-              color: badgeColor
-            };
-            
-            fs.writeFileSync('coverage-badge.json', JSON.stringify(badge));
+            try {
+              // Try to read from the coverage directory
+              const coverageFiles = fs.readdirSync('coverage/storybook');
+              console.log('Coverage directory contents:', coverageFiles);
+              
+              let coverageData;
+              // Look for either coverage-summary.json or coverage-final.json
+              if (fs.existsSync('coverage/storybook/coverage-summary.json')) {
+                coverageData = JSON.parse(fs.readFileSync('coverage/storybook/coverage-summary.json', 'utf8'));
+              } else if (fs.existsSync('coverage/storybook/coverage-final.json')) {
+                const finalCoverage = JSON.parse(fs.readFileSync('coverage/storybook/coverage-final.json', 'utf8'));
+                // Calculate total coverage from coverage-final.json
+                const totals = Object.values(finalCoverage).reduce((acc, file) => {
+                  acc.statements.total += file.s ? Object.keys(file.s).length : 0;
+                  acc.statements.covered += file.s ? Object.values(file.s).filter(v => v > 0).length : 0;
+                  return acc;
+                }, { statements: { total: 0, covered: 0 } });
+                
+                const percentage = (totals.statements.covered / totals.statements.total) * 100;
+                coverageData = {
+                  total: {
+                    statements: {
+                      pct: Math.round(percentage * 100) / 100
+                    }
+                  }
+                };
+              } else {
+                throw new Error('No coverage files found');
+              }
+              
+              const percentage = coverageData.total.statements.pct;
+              const badgeColor = percentage > 80 ? 'green' 
+                : percentage > 60 ? 'yellow'
+                : 'red';
+              
+              const badge = {
+                schemaVersion: 1,
+                label: 'coverage',
+                message: `${percentage}%`,
+                color: badgeColor
+              };
+              
+              fs.writeFileSync('coverage-badge.json', JSON.stringify(badge));
+            } catch (error) {
+              console.error('Error generating coverage badge:', error);
+              core.setFailed(`Failed to generate coverage badge: ${error.message}`);
+            }
 
       - name: Upload Coverage Badge
         if: success()
