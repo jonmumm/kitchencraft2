@@ -7,7 +7,7 @@ import type {
   CallerSnapshotFrom,
 } from "actor-kit";
 import { createAccessToken } from "actor-kit/server";
-import { applyPatch } from "fast-json-patch";
+import { applyPatch, Operation } from "fast-json-patch";
 import { produce } from "immer";
 import {
   CallbackLogicFunction,
@@ -16,7 +16,44 @@ import {
   InputFrom,
 } from "xstate";
 import { invariant } from "./lib/utils";
-import type { ActorKitEmitted } from "./user.types";
+
+// Helper type to convert kebab-case to SNAKE_CASE
+type KebabToSnake<S extends string> = string extends S
+  ? string
+  : S extends `${infer T}-${infer U}`
+  ? `${Uppercase<T>}_${KebabToSnake<U>}`
+  : Uppercase<S>;
+
+// Utility type for actor event types
+type ActorEventType<T extends string> =
+  | `${KebabToSnake<T>}_UPDATED`
+  | `${KebabToSnake<T>}_ERROR`;
+
+// Updated ActorKitEmitted type that extends EventObject
+type ActorKitEmitted<
+  TActorType extends string,
+  TMachine extends AnyActorKitStateMachine
+> = {
+  type: ActorEventType<TActorType>;
+} & (
+  | {
+      type: `${KebabToSnake<TActorType>}_UPDATED`;
+      actorType: TActorType;
+      actorId: string;
+      snapshot: CallerSnapshotFrom<TMachine>;
+      operations: Operation[];
+    }
+  | {
+      type: `${KebabToSnake<TActorType>}_ERROR`;
+      actorType: TActorType;
+      actorId: string;
+      error: Error;
+    }
+);
+
+// Utility function to convert kebab-case to SNAKE_CASE
+export const toSnakeCase = (str: string): string =>
+  str.replace(/-/g, "_").toUpperCase();
 
 export function fromActorKit<TMachine extends AnyActorKitStateMachine>(
   actorType: string
@@ -31,10 +68,7 @@ export function fromActorKit<TMachine extends AnyActorKitStateMachine>(
     signingKey: string;
   };
 
-  const ACTOR_TYPE = actorType
-    .split(/(?=[A-Z])/)
-    .join("_")
-    .toUpperCase();
+  const ACTOR_TYPE = toSnakeCase(actorType);
 
   const callback: CallbackLogicFunction<TReceive, TSendBack, TInput> = ({
     sendBack,

@@ -1,13 +1,13 @@
 import { useStore } from "@nanostores/react";
 import type { MetaFunction } from "@remix-run/cloudflare";
 import { useSearchParams } from "@remix-run/react";
-import { Textarea } from "components/ui/textarea";
 import { ArrowUp } from "lucide-react";
 import { nanoid } from "nanoid";
 import { atom, computed, map } from "nanostores";
 import { memo } from "react";
 import { Drawer } from "vaul";
 import { Button } from "~/components/ui/button";
+import { Textarea } from "~/components/ui/textarea";
 import { RecipeIdeasMetadataOutput } from "~/models/more-recipes.model";
 import { UserContext } from "~/user.context";
 
