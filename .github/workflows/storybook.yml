@@ -1,5 +1,12 @@
 name: 'Storybook Tests'
 on: push
+
+# Add these permission settings
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   test:
     timeout-minutes: 60
