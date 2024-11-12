@@ -57,7 +57,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
             
             try {
               // Try to read from the coverage directory
@@ -109,7 +108,7 @@ jobs:
               
             } catch (error) {
               console.error('Error generating coverage badge:', error);
-              core.setFailed(`Failed to generate coverage badge: ${error.message}`);
+              throw error;
             }
 
       - name: Upload Coverage Badge
