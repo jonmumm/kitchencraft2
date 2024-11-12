@@ -1,0 +1,44 @@
+name: 'Storybook Tests'
+on: push
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+          npm install @rollup/rollup-linux-x64-gnu @rollup/rollup-linux-x64-musl --save-optional
+          npm install @swc/core-linux-x64-gnu @swc/core-linux-x64-musl --save-optional
+          npm install @esbuild/linux-x64 --save-optional
+          npm rebuild rollup @swc/core esbuild
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      
+      - name: Build and Test Storybook
+        env:
+          DEBUG_PRINT_LIMIT: 10000
+          NODE_ENV: production
+        run: |
+          ROLLUP_NATIVE_PATH="$(pwd)/node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" npm run build-storybook --quiet
+          mkdir -p coverage/storybook
+          npx concurrently -k -s first -n "SB,TEST" -c "magenta,blue" \
+            "npx http-server storybook-static --port 6006 --silent" \
+            "npx wait-on tcp:127.0.0.1:6006 && npm run test-storybook -- --maxWorkers=2 --testTimeout=60000 --coverage --coverageDirectory=coverage/storybook"
+        
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook-coverage
+          path: coverage/storybook/
+          if-no-files-found: warn 

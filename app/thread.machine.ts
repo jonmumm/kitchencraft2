@@ -21,6 +21,7 @@ export const threadMachine = setup({
     console.log("THREAD CONTEXT", input);
     return {
       public: {
+        id: input.id,
         ownerId: input.caller.id,
         createdAt: Date.now(),
         lastMessageAt: Date.now(),

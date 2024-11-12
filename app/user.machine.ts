@@ -339,7 +339,6 @@ export const userMachine = setup({
     spawnThread: assign(
       (
         { context, spawn },
-
         {
           server,
           threadId,
@@ -357,7 +356,7 @@ export const userMachine = setup({
         const ref = spawn("thread", {
           id: actorId,
           input: {
-            server: server,
+            server,
             actorId: threadId,
             actorInput: {
               id: threadId,
@@ -382,20 +381,17 @@ export const userMachine = setup({
   type: "parallel",
   context: ({ input }: { input: UserInput }) => {
     console.log("initializing context", input);
-    // initializeTables(input.storage);
-
     return {
       public: {
+        id: input.id,
         ownerId: input.caller.id,
-        threads: {},
-        lastSync: null,
+        createdAt: Date.now(),
+        lastMessageAt: Date.now()
       },
       private: {
         [input.caller.id]: {
-          recentThreadIds: [],
-          sessionIds: [],
-          activeThreads: {},
-        },
+          userIds: []
+        }
       },
       children: {
         thread: {},
@@ -445,7 +441,7 @@ export const userMachine = setup({
               }) => ({
                 threadId: event.threadId,
                 caller: event.caller,
-                server: event.env.THREAD,
+                server: event.env.THREAD as DurableObjectNamespace<ActorServer<ThreadMachine>>,
                 signingKey:
                   (invariant(event.env, "env is required"),
                   event.env.ACTOR_KIT_SECRET),
@@ -492,9 +488,9 @@ export const userMachine = setup({
           actions: ({
             event,
           }: {
-            event: ExtractType<UserEvent, "THREAD_UPDATED">;
+            event: Extract<UserEvent, { type: "THREAD_UPDATED" }>;
           }) => {
-            console.log("THREAD_UPDATED", event.snapshot);
+            // console.log("THREAD_UPDATED", event.snapshot, event.operations);
           },
         },
       },
@@ -506,7 +502,6 @@ export const userMachine = setup({
 }) satisfies ActorKitStateMachine<UserEvent, UserInput, UserServerContext>;
 
 export type UserMachine = typeof userMachine;
-
 async function createMessage(
   db: D1Database,
   message: InsertMessage
@@ -634,3 +629,4 @@ async function createUserProfile(
 
   return UserProfileSchema.parse(result);
 }
+
