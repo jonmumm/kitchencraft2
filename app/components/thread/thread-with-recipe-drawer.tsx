@@ -38,7 +38,7 @@ interface ThreadWithRecipeDrawerProps {
   defaultOpenRecipe?: Recipe;
 }
 
-const snapPoints = [0.5, 1];
+const snapPoints = [0.67, 1];
 
 export const ThreadWithRecipeDrawer = ({
   messages,
@@ -90,7 +90,6 @@ export const ThreadWithRecipeDrawer = ({
           onOpenChange={(open) => !open && setSelectedRecipe(null)}
         >
           <Drawer.Portal>
-            <Drawer.Overlay className="fixed inset-0 bg-black/40 z-[48]" />
             <Drawer.Content
               className={cn(
                 "fixed flex flex-col bg-white lg:hidden",
