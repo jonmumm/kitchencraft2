@@ -13,11 +13,17 @@ interface RecipeCardProps {
   };
   variant?: "primary" | "compact";
   className?: string;
+  onClick?: () => void;
 }
 
 export const RecipeCard = React.forwardRef<HTMLDivElement, RecipeCardProps>(
-  ({ recipe, variant = "primary", className }, ref) => {
+  ({ recipe, variant = "primary", className, onClick }, ref) => {
     const isPrimary = variant === "primary";
+
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onClick?.();
+    };
 
     return (
       <div
@@ -81,7 +87,11 @@ export const RecipeCard = React.forwardRef<HTMLDivElement, RecipeCardProps>(
               )}
             </div>
 
-            <Button variant="ghost" size={isPrimary ? "lg" : "sm"}>
+            <Button 
+              variant="ghost" 
+              size={isPrimary ? "lg" : "sm"}
+              onClick={handleClick}
+            >
               View Recipe
             </Button>
           </div>
